@@ -5,6 +5,8 @@ import java.time.Instant;
 import com.example.booking.room.Room;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -31,6 +33,10 @@ public class Booking {
 
     @Column(name = "end_time", nullable = false)
     private Instant endTime;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private BookingStatus status = BookingStatus.ACTIVE;
 
     protected Booking() {
     }
@@ -60,5 +66,13 @@ public class Booking {
 
     public Instant getEndTime() {
         return endTime;
+    }
+
+    public BookingStatus getStatus() {
+        return status;
+    }
+
+    public void cancel() {
+        this.status = BookingStatus.CANCELLED;
     }
 }

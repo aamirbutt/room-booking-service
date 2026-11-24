@@ -2,6 +2,7 @@ package com.example.booking.booking;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 
 import com.example.booking.api.ConflictException;
@@ -22,12 +23,17 @@ public class BookingService {
     static final Duration MAX_BOOKING_DURATION = Duration.ofHours(12);
 
     private final BookingRepository bookingRepository;
+    private final BookingSearchRepository bookingSearchRepository;
     private final RoomRepository roomRepository;
     private final UserRepository userRepository;
 
     public BookingService(
-            BookingRepository bookingRepository, RoomRepository roomRepository, UserRepository userRepository) {
+            BookingRepository bookingRepository,
+            BookingSearchRepository bookingSearchRepository,
+            RoomRepository roomRepository,
+            UserRepository userRepository) {
         this.bookingRepository = bookingRepository;
+        this.bookingSearchRepository = bookingSearchRepository;
         this.roomRepository = roomRepository;
         this.userRepository = userRepository;
     }
@@ -38,12 +44,42 @@ public class BookingService {
         requireValidWindow(request.start(), request.end());
         var room = roomRepository.findByIdForUpdate(request.roomId())
                 .orElseThrow(() -> new NotFoundException("Room " + request.roomId() + " not found"));
-        if (bookingRepository.overlaps(room.getId(), request.start(), request.end())) {
+        if (bookingRepository.hasActiveBookingBetween(room.getId(), request.start(), request.end())) {
             throw new ConflictException("Room " + room.getName() + " is already booked in that window");
         }
         var booking = bookingRepository.save(new Booking(room, userId, request.start(), request.end()));
         log.info("Booking {} created in room {} by user {}", booking.getId(), room.getId(), userId);
         return BookingResponse.from(booking);
+    }
+
+    @Transactional
+    public List<BookingResponse> createRecurring(long userId, CreateRecurringBookingRequest request) {
+        requireUser(userId);
+        requireValidWindow(request.start(), request.end());
+        var room = roomRepository.findById(request.roomId())
+                .orElseThrow(() -> new NotFoundException("Room " + request.roomId() + " not found"));
+        var bookings = new ArrayList<Booking>();
+        for (int week = 0; week < request.weeks(); week++) {
+            var start = request.start().plus(Duration.ofDays(7L * week));
+            var end = request.end().plus(Duration.ofDays(7L * week));
+            if (bookingRepository.hasActiveBookingBetween(room.getId(), start, end)) {
+                throw new ConflictException("Room " + room.getName() + " is already booked on " + start);
+            }
+            bookings.add(new Booking(room, userId, start, end));
+        }
+        var saved = bookingRepository.saveAll(bookings);
+        log.info("Created {} weekly bookings in room {} for user {}", saved.size(), room.getId(), userId);
+        return saved.stream().map(BookingResponse::from).toList();
+    }
+
+    @Transactional
+    public void cancel(long userId, long bookingId) {
+        var user = userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("User " + userId + " not found"));
+        var booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new NotFoundException("Booking " + bookingId + " not found"));
+        booking.cancel();
+        log.info("Booking {} cancelled by {}", bookingId, user.getEmail());
     }
 
     @Transactional(readOnly = true)
@@ -59,6 +95,11 @@ public class BookingService {
             throw new NotFoundException("Room " + roomId + " not found");
         }
         return bookingRepository.findForRoom(roomId, from, to).stream().map(BookingResponse::from).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<BookingResponse> search(String roomName, Instant from, Instant to) {
+        return bookingSearchRepository.search(roomName, from, to).stream().map(BookingResponse::from).toList();
     }
 
     private void requireUser(long userId) {
