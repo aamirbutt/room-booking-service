@@ -20,9 +20,12 @@ All times are UTC instants (ISO-8601, e.g. `2030-01-07T10:00:00Z`).
 |---|---|---|
 | `GET` | `/rooms` | List rooms |
 | `GET` | `/rooms/{id}` | Get a room |
-| `GET` | `/rooms/{roomId}/bookings?from=&to=` | Bookings in a room that overlap a window |
+| `GET` | `/rooms/{roomId}/bookings?from=&to=` | Active bookings in a room that overlap a window |
 | `POST` | `/bookings` | Book a room: `{"roomId", "start", "end"}` |
+| `POST` | `/bookings/recurring` | Book the same slot weekly: `{"roomId", "start", "end", "weeks"}` |
 | `GET` | `/bookings/{id}` | Get a booking |
+| `DELETE` | `/bookings/{id}` | Cancel a booking |
+| `GET` | `/bookings/search?room=&from=&to=` | Active bookings overlapping a window, optionally filtered by room name |
 
 ## Running
 

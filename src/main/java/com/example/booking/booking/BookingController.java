@@ -5,6 +5,7 @@ import java.util.List;
 
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -30,6 +31,25 @@ public class BookingController {
     public BookingResponse create(
             @RequestHeader(USER_HEADER) long userId, @Valid @RequestBody CreateBookingRequest request) {
         return bookingService.create(userId, request);
+    }
+
+    @PostMapping("/bookings/recurring")
+    @ResponseStatus(HttpStatus.CREATED)
+    public List<BookingResponse> createRecurring(
+            @RequestHeader(USER_HEADER) long userId, @Valid @RequestBody CreateRecurringBookingRequest request) {
+        return bookingService.createRecurring(userId, request);
+    }
+
+    @DeleteMapping("/bookings/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void cancel(@RequestHeader(USER_HEADER) long userId, @PathVariable long id) {
+        bookingService.cancel(userId, id);
+    }
+
+    @GetMapping("/bookings/search")
+    public List<BookingResponse> search(
+            @RequestParam(required = false) String room, @RequestParam Instant from, @RequestParam Instant to) {
+        return bookingService.search(room, from, to);
     }
 
     @GetMapping("/bookings/{id}")
